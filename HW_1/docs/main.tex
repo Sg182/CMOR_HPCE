@@ -1,0 +1,175 @@
+\documentclass{article}[12pt]
+\usepackage{graphicx} % Required for inserting 
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{breqn}
+\usepackage{setspace}
+\usepackage{mathtools}
+\usepackage{float}
+\usepackage{geometry}
+\geometry{a4paper,margin=0.8in}
+
+\singlespacing
+
+\title{CMOR 521 HW1}
+\author{Swarnamoy Ghosh}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{RUNNING THE CODE}
+
+This section briefly explains how to run the code for this assignment. In this assignment, we implement naive, cache-blocked, and recursive versions of a matrix transposition function.
+
+\begin{enumerate}
+    \item As instructed, the driver files are in the main directory - \textbf{main.c} ,makefile, \textbf{matmul\_blocked.cpp} and \textbf{matmul\_recursive.cpp} .
+    \item mat\_trans.c inside \textbf{src} sub-directory.
+    \item A header file - \textbf{transpose.h} inside the \textbf{include} sub-directory.
+\end{enumerate}
+
+The script mat\_trans.c contains the necessary functions for different matrix transposition algorithms.
+
+\vspace{0.5cm}
+
+To check the implementation of the function 'time\_transpose', go to the home directory and run the following commands in the terminal -
+\begin{enumerate}
+    \item \textbf{\$ make}
+    \item \$ ./transpose n
+\end{enumerate}
+ Here, the 'n' is the size of n x n matrix. We can change the number of trials by going inside 'mat\_trans.c' and changing the variable 'trials' to a desired number. By default, the program prints the minimum runtime over 25 trials and the maximum relative error compared to a reference implementation.
+
+To check the timings of cached block method  for different block sizes and return an optimal block size, run the executable 'transpose' as -
+
+~\textbf{\$ ./transpose --sweep-block n trials}
+For example for a 1024 x 1024 matrix and with 30 trials, do -
+
+\begin{verbatim}
+    $ ./transpose --sweep-block 1024 30
+\end{verbatim}
+ 
+
+\vspace{0.5cm}
+Similarly, for the recursive transpose, to get the timings and the optimal threshold, do -
+
+\begin{verbatim}
+    $ ./transpose --sweep-thresh 1024 30
+\end{verbatim}
+ 
+
+That is all we need to know!
+
+\section{ANALYSIS - TRANPOSE}
+
+\begin{enumerate}
+    \item \textbf{For the cache-blocked transpose, report timings for different block sizes and determine an optimal block size.}- 
+    \begin{verbatim}
+(base) swarnamoyghosh@Swarnamoys-MacBook-Pro CMOR_HW1 % ./transpose --sweep-block 2048 40                                
+impl,n,param,time,err
+blocked,2048,4,7.1269999899e-03,0.000e+00
+blocked,2048,8,6.1790000182e-03,0.000e+00
+blocked,2048,12,6.3419999788e-03,0.000e+00
+blocked,2048,13,7.8330000106e-03,0.000e+00
+blocked,2048,14,9.4939999981e-03,0.000e+00
+blocked,2048,15,1.2031999999e-02,0.000e+00
+blocked,2048,16,1.2683000008e-02,0.000e+00
+blocked,2048,24,1.6449000017e-02,0.000e+00
+blocked,2048,32,1.3815000013e-02,0.000e+00
+blocked,2048,48,1.7131000001e-02,0.000e+00
+blocked,2048,64,1.3896000019e-02,0.000e+00
+blocked,2048,96,1.7407999985e-02,0.000e+00
+blocked,2048,128,1.7355999997e-02,0.000e+00
+blocked,2048,192,1.9697000011e-02,0.000e+00
+blocked,2048,256,1.9870000018e-02,0.000e+00
+Best block size for n=2048: Block=8 (time=6.179000e-03 s)
+    \end{verbatim}
+
+    Therefore, the best block size is \textbf{8}.
+    \item  \textbf{For the recursive transpose, instead of terminating the recursion at n=1 , terminate by running a "microkernel" if the matrix is smaller than some threshold size. Report timings for different threshold sizes, and determine an optimal threshold size.}
+
+    \begin{verbatim}
+(base) swarnamoyghosh@Swarnamoys-MacBook-Pro CMOR_HW1 % ./transpose --sweep-thresh 2048 40
+impl,n,param,time,err
+recursive,2048,8,1.4521999983e-02,0.000e+00
+recursive,2048,16,1.3406999991e-02,0.000e+00
+recursive,2048,24,1.3374000002e-02,0.000e+00
+recursive,2048,32,1.3737000001e-02,0.000e+00
+recursive,2048,48,1.3739000016e-02,0.000e+00
+recursive,2048,64,1.3829999982e-02,0.000e+00
+recursive,2048,96,1.3795000006e-02,0.000e+00
+recursive,2048,128,1.7454999994e-02,0.000e+00
+recursive,2048,192,1.7396999989e-02,0.000e+00
+recursive,2048,256,1.9688999979e-02,0.000e+00
+recursive,2048,384,1.9710000022e-02,0.000e+00
+recursive,2048,512,1.9946999993e-02,0.000e+00
+Best threshold for n=2048: Thresh=24 (time=1.337400e-02 s)
+    \end{verbatim}
+
+The best threshold size is \textbf{24}.
+
+\item \textbf{Plot runtimes for each implementation (use optimal block/threshold sizes) for matrix sizes and discuss what you observe.} 
+
+\begin{figure}[H]   % H = exactly here (requires float package)
+    \centering
+    \includegraphics[width=0.6\textwidth]{runtime.pdf}
+    \caption{Runtimes for Naive, blocked and recursive transpose algorithms for different matrix size n. The optimal block size and threshold size chosen to be 8 and 24 respectively.}
+    \label{fig:myfigure}
+\end{figure}
+
+In Fig. 1, the naive transpose performs comparably to blocked and recursive for small matrix size $n$, since, the working sets fits well in cache and the runtime is dominated by loop overhead. Blocked and recursive, in this case doesn't utilize the cache benefits. As $n$ increases, naive method performs slower due to poor cache behaviour caused by strided access ($AT$ is stored in row-major order). The cache-block transpose works well for large $n$ because it minimizes the cache-misses by creating sub-blocks of $A$ and $AT$ and keeping them in cache. The recursive method improves too at large $n$ relative to naive but remains slower than blocked, likely due to recursion overheads.
+
+\item \textbf{How many slow memory reads/writes are required for naive matrix transposition, assuming that the full matrix is large enough so that it does not fit into fast memory?}
+
+Assuming the matrix is sufficiently large so that it does not fit into fast memory, i.e. no effective data reuse occurs, then each element of A must be read and written $n^2$ times.
+
+\item \textbf{If $AT$ is stored in column-major format, which matrix transposition algorithm will be the fastest?}
+
+If $AT$ is stored in column-major format, then naive-transpose is typically fastest, since it fixes the large stride problem, and both arrays are accessed sequentially. 
+
+Blocking or recursive will in turn add extra loop overheads, complicated overflow with no locality improvement.
+    
+\end{enumerate}
+
+\section{ANALYSIS - MATRIX MULTIPLICATION}
+
+For this part, I have reused the source cpp files already provided to us on Canvas. The recursive matrix-multiplication is implemented using the 'matmul\_recursive.cpp', where I modified it a bit to return the optimum runtime over 25 trials, and checking the relative error.
+
+To run matmul\_recursive.cpp, type the following at the home directory -
+
+\begin{verbatim}
+    $ g++ -O3 -march=native -std=c++17 matmul_recursive.cpp -o matmul
+    $ ./matmul n  
+\end{verbatim}
+where n is the matrix size.
+
+For example, testing for $n=1024$,
+
+\begin{verbatim}
+    $./matmul 1024
+    Matrix size n = 1024, recursive threshhold = 8
+    max relative error = 0
+    PASSED correctness check.
+    Elapsed time for recursive matmul in (secs): 1.43596
+\end{verbatim}
+
+I swept the threshold $t \in \{2,4,8,16,32,64,128\}$ for matrix of size $n=1024$, and found $t=4$ as optimum.
+
+
+\begin{figure}[H]   % H = exactly here (requires float package)
+    \centering
+    \includegraphics[width=0.6\textwidth]{runtime_matmul.pdf}
+    \caption{Runtimes for Naive, blocked and recursive matmul algorithms for different matrix size n. The optimal block size and threshold size chosen to be 8 and 4 respectively.}
+    \label{fig:myfigure}
+\end{figure}
+
+Fig 2. shows the runtime of the multiplication of naive, recursive, and cache-blocked matrix as a function of the size of the matrix. 
+
+For small matrices, all three methods perform similarly because the working set fits entirely in cache, and execution is dominated by loop overhead. As matrix size increases, the naive implementation becomes significantly slower due to poor cache locality and increased memory traffic.
+
+Recursive implementation improves performance relative to naive implementation by improving locality through divide-and-conquer decomposition. However, its performance remains inferior to the blocked implementation for large matrices due to recursion overhead and the relatively small microkernel size.
+
+At the largest tested size, the blocked algorithm achieved a runtime of 5.09746 seconds, compared to 9.23824 seconds for recursive and 17.0965 seconds for naive. This corresponds to speedups of approximately 3.35× over naive and 1.81× over recursive. These results demonstrate that explicit cache blocking provides the best scalability and cache efficiency for large matrix sizes.
+
+
+\end{document}
