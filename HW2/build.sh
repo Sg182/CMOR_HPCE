@@ -20,5 +20,5 @@ echo "Building $OUT ..."
 $CC $CFLAGS $SRC -o $OUT
 echo "Done."
 echo "Run with:"
-echo "  export OMP_NUM_THREADS=4"
-echo "  ./$OUT 100000000"
+echo " $ export OMP_NUM_THREADS=4"
+echo " $ ./$OUT 100000000"

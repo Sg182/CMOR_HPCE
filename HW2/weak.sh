@@ -11,4 +11,4 @@ do
     export OMP_NUM_THREADS=$t
     ./axpy.out $N
     echo
-done
+done 
