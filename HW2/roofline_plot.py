@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 n = 100000000
 I_axpy = 2.0 / 24.0   # flop/byte
 
-T1 = 0.020286
-T2 = 0.018886
-T8 = 0.017705
+T1 = 0.113108
+T2 = 0.056360
+T8 = 0.025770
+
 
 P1 = (2.0 * n) / T1 / 1e9
 P2 = (2.0 * n) / T2 / 1e9
@@ -18,9 +19,9 @@ P8 = (2.0 * n) / T8 / 1e9
 # ----------------------------
 # STREAM-like measured bandwidths
 # ----------------------------
-B1 = 115.579
-B2 = 123.381
-B8 = 125.687
+B1 = 15.450
+B2 = 29.815
+B8 = 74.368
 
 # Large compute peak just to show the memory roofs clearly
 P_peak = 500.0

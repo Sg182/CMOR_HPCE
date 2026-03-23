@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC="matmul_recursive_omp.c"
+SRC="src/matmul_recursive_omp.c"
 OUT="matmul_recursive_tasks"
 
 if command -v gcc-15 >/dev/null 2>&1; then

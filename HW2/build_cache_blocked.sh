@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC="matmul_blocked_omp.c"
+SRC="src/matmul_blocked_omp.c"
 OUT="matmul_blocked_omp"
 
 if command -v gcc-15 >/dev/null 2>&1; then

@@ -5,6 +5,7 @@
 
 
 
+
 void print_vector(const char *name, int n, double *v) {
     printf("%s = [", name);
     for (int i = 0; i < n; i++) {
