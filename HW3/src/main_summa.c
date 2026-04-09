@@ -16,10 +16,10 @@ int main(int argc, char **argv) {
 
     if (argc < 3) {
         if (world_rank == 0) {
-            fprintf(stderr, "Usage: mpirun -np <p> ./summa_rankk_c <N> <k> [verify]\n");
-            fprintf(stderr, "  N      = global matrix size (NxN)\n");
-            fprintf(stderr, "  k      = rank-k update width\n");
-            fprintf(stderr, "  verify = optional word: verify\n");
+            fprintf(stderr, "Usage: mpirun -np <p> ./summa_rankk_c <N> <k> [seed]\n");
+            fprintf(stderr, "  N    = global matrix size (NxN)\n");
+            fprintf(stderr, "  k    = rank-k update width\n");
+            fprintf(stderr, "  seed = optional random seed (default 12345)\n");
         }
         MPI_Finalize();
         return 1;
@@ -27,7 +27,10 @@ int main(int argc, char **argv) {
 
     int N = atoi(argv[1]);
     int k = atoi(argv[2]);
-    int do_verify = (argc >= 4 && strcmp(argv[3], "verify") == 0);
+    unsigned int seed = 12345U;
+    if (argc >= 4) {
+        seed = (unsigned int)atoi(argv[3]);
+    }
 
     int q = (int)lround(sqrt((double)world_size));
     if (q * q != world_size) {
@@ -48,6 +51,7 @@ int main(int argc, char **argv) {
     if (nb % k != 0) {
         if (world_rank == 0) {
             fprintf(stderr, "Error: local block size N/sqrt(p) must be divisible by k.\n");
+            fprintf(stderr, "Equivalent requirement: N divisible by k*sqrt(p).\n");
         }
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
@@ -62,9 +66,44 @@ int main(int argc, char **argv) {
     double *A_local = (double *)malloc((size_t)nb * nb * sizeof(double));
     double *B_local = (double *)malloc((size_t)nb * nb * sizeof(double));
     double *C_local = (double *)calloc((size_t)nb * nb, sizeof(double));
+    double *C_ref_local = (double *)malloc((size_t)nb * nb * sizeof(double));
 
-    init_local_block_A(A_local, N, q, pr, pc);
-    init_local_block_B(B_local, N, q, pr, pc);
+    double *A_global = NULL;
+    double *B_global = NULL;
+    double *C_ref_global = NULL;
+    double *C_global = NULL;
+
+    double *A_packed = NULL;
+    double *B_packed = NULL;
+    double *C_packed = NULL;
+    double *C_ref_packed = NULL;
+
+    if (world_rank == 0) {
+        A_global = (double *)malloc((size_t)N * N * sizeof(double));
+        B_global = (double *)malloc((size_t)N * N * sizeof(double));
+        C_ref_global = (double *)malloc((size_t)N * N * sizeof(double));
+        C_global = (double *)malloc((size_t)N * N * sizeof(double));
+
+        A_packed = (double *)malloc((size_t)world_size * nb * nb * sizeof(double));
+        B_packed = (double *)malloc((size_t)world_size * nb * nb * sizeof(double));
+        C_packed = (double *)malloc((size_t)world_size * nb * nb * sizeof(double));
+        C_ref_packed = (double *)malloc((size_t)world_size * nb * nb * sizeof(double));
+
+        fill_random_matrix(A_global, N, seed);
+        fill_random_matrix(B_global, N, seed + 1U);
+
+        pack_blocks(A_global, A_packed, N, q);
+        pack_blocks(B_global, B_packed, N, q);
+
+        serial_matmul(A_global, B_global, C_ref_global, N);
+        pack_blocks(C_ref_global, C_ref_packed, N, q);
+    }
+
+    MPI_Scatter(A_packed, nb * nb, MPI_DOUBLE,A_local, nb * nb, MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
+
+    MPI_Scatter(B_packed, nb * nb, MPI_DOUBLE,B_local, nb * nb, MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
     double t0 = MPI_Wtime();
@@ -77,26 +116,57 @@ int main(int argc, char **argv) {
     double max_time = 0.0;
     MPI_Reduce(&elapsed, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
+    MPI_Gather(C_local, nb * nb, MPI_DOUBLE,C_packed, nb * nb, MPI_DOUBLE,
+               0, MPI_COMM_WORLD);
+
+    MPI_Scatter(C_ref_packed, nb * nb, MPI_DOUBLE,C_ref_local, nb * nb, MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
+
+    double local_err = local_max_error(C_local, C_ref_local, nb * nb);
+    double global_err = 0.0;
+
+    MPI_Reduce(&local_err, &global_err, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
     if (world_rank == 0) {
-        printf("SUMMA rank-k completed\n");
-        printf("p               = %d\n", world_size);
-        printf("sqrt(p)         = %d\n", q);
-        printf("N               = %d\n", N);
-        printf("local block     = %d x %d\n", nb, nb);
-        printf("k               = %d\n", k);
-        printf("time (max rank) = %.6f s\n", max_time);
+        unpack_blocks(C_packed, C_global, N, q);
     }
 
-    if (do_verify) {
-        double max_err = verify_result(C_local, N, q, world_rank, world_size);
-        if (world_rank == 0) {
-            printf("verification max |error| = %.12e\n", max_err);
+    for (int r = 0; r < world_size; r++) {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (world_rank == r) {
+            printf("Rank %2d (row=%d, col=%d): local max error = %.12e\n",
+                 world_rank, pr, pc, local_err);
+            fflush(stdout);
         }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (world_rank == 0) {
+        printf("\nSUMMA rank-k completed\n");
+        printf("p                = %d\n", world_size);
+        printf("sqrt(p)          = %d\n", q);
+        printf("N                = %d\n", N);
+        printf("local block      = %d x %d\n", nb, nb);
+        printf("k                = %d\n", k);
+        printf("time (max rank)  = %.6f s\n", max_time);
+        printf("global max error = %.12e\n", global_err);
     }
 
     free(A_local);
     free(B_local);
     free(C_local);
+    free(C_ref_local);
+
+    if (world_rank == 0) {
+        free(A_global);
+        free(B_global);
+        free(C_global);
+        free(C_ref_global);
+        free(A_packed);
+        free(B_packed);
+        free(C_packed);
+        free(C_ref_packed);
+    }
 
     MPI_Comm_free(&row_comm);
     MPI_Comm_free(&col_comm);
