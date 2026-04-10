@@ -1,0 +1,225 @@
+\documentclass{article}[12pt]
+\usepackage{graphicx} % Required for inserting 
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{breqn}
+\usepackage{setspace}
+\usepackage{mathtools}
+\usepackage{float}
+\usepackage{geometry}
+\geometry{a4paper,margin=0.8in}
+
+\singlespacing
+
+\title{CMOR 521 HW3}
+\author{Swarnamoy Ghosh}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{RUNNING THE CODE}
+
+This section briefly explains how to run the code for this assignment. In this assignment, we explore MPI to implement the SUMMA and Cannon's algorithm. Both the SUMMA and Cannon algorithms can be compiled using the \textbf{makefile}.
+
+\begin{enumerate}
+    \item The main directory contains \textbf{makefile} and sub-directories \textbf{src}, \textbf{include} and \textbf{docs}.
+    \item  To build both SUMMA and Cannon executables, just run -
+    \begin{verbatim}
+    $ make clean
+    $ make
+    \end{verbatim}
+    \item The above commands produce two executables, \textbf{summa\_rankk\_c} for SUMMA algorithm, and \textbf{cannon\_mm} for Cannon's algorithm.
+    \item Running SUMMA code
+    \begin{verbatim}
+        $ mpirun -np <p> ./summa_rankk_c <N> <k> <seed>
+    \end{verbatim}
+    where $<p>$ is the total number of MPI processes, $<N>$ is the matrix-size N $\times$ N. $<\text{seed}>$ is the random seed used to generate the test matrices.
+
+    For the correctness test, I run
+    \begin{verbatim}
+        $ mpirun -np 4  ./summa_rankk_c 12 1 12345
+        $ mpirun -np 9  ./summa_rankk_c 12 1 12345
+        $ mpirun -np 16 ./summa_rankk_c 12 1 12345
+    \end{verbatim}
+    where, \textbf{-np 4} corresponds to $2 \times 2$ processor grid, \textbf{-np 9} corresponds to $3 \times 3$ processor grid and \textbf{-np 16} corresponds to $4 \times 4$ processor grid.
+    \item Running Cannon code
+    \begin{verbatim}
+        $ mpirun -np <p> ./cannon_mm <N> <seed>
+    \end{verbatim}
+    where $<p>$ is the total number of MPI processes, $<N>$ is the matrix-size N x N. $<\text{seed}>$ is the random seed used to generate the test matrices.
+    For the correctness test, I run
+    \begin{verbatim}
+        $ mpirun -np 4  ./cannon_mm 12 12345
+        $ mpirun -np 9  ./cannon_mm 12 12345
+        $ mpirun -np 16 ./cannon_mm 12 12345
+    \end{verbatim}
+\end{enumerate}
+
+ 
+\section{SUMMA algorithm for matrix multiplication}
+
+For the correctness testing, I used $N=12$ and $k=1$,since it satisfies the requirement that the matrix dimensions be divisible by $k\sqrt{p}$ for the $2 \times 2$, $3\times3$ and $4\times4$ processor grids. 
+
+To test correctness, rank 0 generated random matrices $A$ and $B$, computed the serial reference result $C_{ref} = AB$, and packed the matrices into block form. The blocks then were distributed to the MPI processes using MPI\_Scatter. After the parallel SUMMA computation, the local blocks of the parallel results were collected with MPI\_Gather. The serial reference results were also distributed in block form using MPI\_Scatter, so that each process could compute its local maximum absolute error. The global maximum error was then obtained by MPI\_Reduce. 
+ 
+
+\subsection{$2\times 2$ grid}
+
+\begin{verbatim}
+$ mpirun -np 4  ./summa_rankk_c 12 1 12345
+
+Rank  0 (row=0, col=0): local max error = 0.000000000000e+00
+
+SUMMA rank-k completed
+p                = 4
+sqrt(p)          = 2
+N                = 12
+local block      = 6 x 6
+k                = 1
+time (max rank)  = 0.000076 s
+global max error = 0.000000000000e+00
+Rank  1 (row=0, col=1): local max error = 0.000000000000e+00
+Rank  2 (row=1, col=0): local max error = 0.000000000000e+00
+Rank  3 (row=1, col=1): local max error = 0.000000000000e+00
+\end{verbatim}
+
+\subsection{$3\times 3$ grid}
+
+\begin{verbatim}
+$ mpirun -np 9  ./summa_rankk_c 12 1 12345
+
+Rank  0 (row=0, col=0): local max error = 0.000000000000e+00
+Rank  1 (row=0, col=1): local max error = 0.000000000000e+00
+Rank  2 (row=0, col=2): local max error = 0.000000000000e+00
+Rank  3 (row=1, col=0): local max error = 0.000000000000e+00
+Rank  4 (row=1, col=1): local max error = 0.000000000000e+00
+Rank  5 (row=1, col=2): local max error = 0.000000000000e+00
+Rank  6 (row=2, col=0): local max error = 0.000000000000e+00
+Rank  7 (row=2, col=1): local max error = 0.000000000000e+00
+Rank  8 (row=2, col=2): local max error = 0.000000000000e+00
+
+SUMMA rank-k completed
+p                = 9
+sqrt(p)          = 3
+N                = 12
+local block      = 4 x 4
+k                = 1
+time (max rank)  = 0.123292 s
+global max error = 0.000000000000e+00
+\end{verbatim}
+
+\subsection{$4\times 4$ grid}
+\begin{verbatim}
+
+$ mpirun -np 16  ./summa_rankk_c 12 1 12345
+
+Rank  0 (row=0, col=0): local max error = 0.000000000000e+00
+Rank  1 (row=0, col=1): local max error = 0.000000000000e+00
+Rank  2 (row=0, col=2): local max error = 0.000000000000e+00
+Rank  3 (row=0, col=3): local max error = 0.000000000000e+00
+Rank  4 (row=1, col=0): local max error = 0.000000000000e+00
+Rank  5 (row=1, col=1): local max error = 0.000000000000e+00
+Rank  6 (row=1, col=2): local max error = 0.000000000000e+00
+Rank  7 (row=1, col=3): local max error = 0.000000000000e+00
+Rank  8 (row=2, col=0): local max error = 0.000000000000e+00
+Rank  9 (row=2, col=1): local max error = 0.000000000000e+00
+Rank 10 (row=2, col=2): local max error = 0.000000000000e+00
+Rank 11 (row=2, col=3): local max error = 0.000000000000e+00
+Rank 12 (row=3, col=0): local max error = 0.000000000000e+00
+Rank 13 (row=3, col=1): local max error = 0.000000000000e+00
+Rank 14 (row=3, col=2): local max error = 0.000000000000e+00
+Rank 15 (row=3, col=3): local max error = 0.000000000000e+00
+
+SUMMA rank-k completed
+p                = 16
+sqrt(p)          = 4
+N                = 12
+local block      = 3 x 3
+k                = 1
+time (max rank)  = 0.331175 s
+global max error = 0.000000000000e+00
+\end{verbatim}
+
+The SUMMA implementation produced zero local and global error for every $2\times2$, $3\times3$ and $4\times4$ processor grids. The runtime increased with processor count for this test because the matrix size $N=12$ is small, so communication overhead dominates the computation.
+\section{Cannon's algorithm for matrix multiplication}
+
+Cannon's algorithm also been run in a similar manner as SUMMA.
+
+\subsection{$2 \times 2$ grid}
+
+\begin{verbatim}
+$ mpirun -np 4  ./cannon_mm 12 12345
+
+Rank  1 (row=0, col=1): local max error = 1.332267629550e-15
+Rank  2 (row=1, col=0): local max error = 8.881784197001e-16
+Rank  3 (row=1, col=1): local max error = 0.000000000000e+00
+Rank  0 (row=0, col=0): local max error = 0.000000000000e+00
+
+Cannon matrix multiplication completed
+p                = 4
+sqrt(p)          = 2
+N                = 12
+local block      = 6 x 6
+time (max rank)  = 0.000042 s
+global max error = 1.332267629550e-15
+ 
+\end{verbatim}
+\subsection{$3 \times 3$ grid}
+
+\begin{verbatim}
+
+$ mpirun -np 9  ./cannon_mm 12 12345
+
+Rank 0 (row=0, col=0): local max error = 0.000000000000e+00
+Rank  1 (row=0, col=1): local max error = 4.440892098501e-16
+Rank  2 (row=0, col=2): local max error = 1.332267629550e-15
+Rank  3 (row=1, col=0): local max error = 8.881784197001e-16
+Rank  4 (row=1, col=1): local max error = 1.332267629550e-15
+Rank  5 (row=1, col=2): local max error = 0.000000000000e+00
+Rank  6 (row=2, col=0): local max error = 8.881784197001e-16
+Rank  7 (row=2, col=1): local max error = 0.000000000000e+00
+Rank  8 (row=2, col=2): local max error = 8.881784197001e-16
+
+Cannon matrix multiplication completed
+p                = 9
+sqrt(p)          = 3
+N                = 12
+local block      = 4 x 4
+time (max rank)  = 0.138997 s
+global max error = 1.332267629550e-15
+\end{verbatim}
+\subsection{$4 \times 4$ grid}
+
+\begin{verbatim}
+$ mpirun -np 16  ./cannon_mm 12 12345
+
+Rank  0 (row=0, col=0): local max error = 0.000000000000e+00
+Rank  1 (row=0, col=1): local max error = 4.440892098501e-16
+Rank  2 (row=0, col=2): local max error = 8.881784197001e-16
+Rank  3 (row=0, col=3): local max error = 4.440892098501e-16
+Rank  4 (row=1, col=0): local max error = 8.881784197001e-16
+Rank  5 (row=1, col=1): local max error = 8.881784197001e-16
+Rank  6 (row=1, col=2): local max error = 4.440892098501e-16
+Rank  7 (row=1, col=3): local max error = 0.000000000000e+00
+Rank  8 (row=2, col=0): local max error = 8.881784197001e-16
+Rank  9 (row=2, col=1): local max error = 8.881784197001e-16
+Rank 10 (row=2, col=2): local max error = 0.000000000000e+00
+Rank 11 (row=2, col=3): local max error = 4.440892098501e-16
+Rank 12 (row=3, col=0): local max error = 4.440892098501e-16
+Rank 13 (row=3, col=1): local max error = 0.000000000000e+00
+Rank 14 (row=3, col=2): local max error = 8.881784197001e-16
+Rank 15 (row=3, col=3): local max error = 4.440892098501e-16
+
+Cannon matrix multiplication completed
+p                = 16
+sqrt(p)          = 4
+N                = 12
+local block      = 3 x 3
+time (max rank)  = 0.373995 s
+global max error = 8.881784197001e-16
+\end{verbatim}
+
+The Cannon implementation agreed with the serial matrix multiplication to within machine precision for the $2\times2$, $3\times3$, and $4\times4$ processor grids.
+\end{document}
